@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>:3</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to top right, #ffe0f0, #fceaff);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #e91e63;
+      margin-top: 20px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(15, 40px);
+      grid-template-rows: repeat(15, 40px);
+      gap: 2px;
+      margin: 20px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      position: relative;
+      background-color: white;
+    }
+
+    .wall {
+      background-color: #ff69b4;
+      border-radius: 8px;
+    }
+
+    .goal {
+      animation: heartbeat 1s infinite;
+    }
+
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.2); }
+      50% { transform: scale(1); }
+      75% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    #message {
+      font-size: 22px;
+      color: #d5006a;
+      padding: 14px 24px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 3px dashed #e91e63;
+      border-radius: 16px;
+      display: none;
+      max-width: 90%;
+      text-align: center;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 Mini Juego: ¿Puedes llegar al corazón? 💘</h1>
+  <div id="message"></div>
+  <div class="container" id="maze"></div>
+
+  <script>
+    const maze = [
+      "###############",
+      "#P     #      #",
+      "# ### ### ### #",
+      "#   #     #   #",
+      "### ##### ### #",
+      "#     #       #",
+      "# ### # ##### #",
+      "# #   #     # #",
+      "# # ##### # # #",
+      "# #     # # # #",
+      "# ##### ###G# #",
+      "#     #   #   #",
+      "### # ### ### #",
+      "#   #     #   #",
+      "###############"
+    ];
+
+    const container = document.getElementById("maze");
+    const message = document.getElementById("message");
+
+    let playerPos = { x: 1, y: 1 };
+    let enemies = [
+    { x: 5, y: 1, dx: 1, dy: 0 },   // Se mueve horizontalmente en el pasillo superior
+    { x: 7, y: 5, dx: 0, dy: 1 },   // Se mueve verticalmente en zona central
+    { x: 11, y: 9, dx: -1, dy: 0 }  // Se mueve horizontalmente en pasillo inferior
+    ];;
+    
+    let gameActive = true;
+
+    function renderMaze() {
+      container.innerHTML = "";
+      for (let y = 0; y < maze.length; y++) {
+        for (let x = 0; x < maze[y].length; x++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+
+          const isWall = maze[y][x] === "#";
+          const isGoal = maze[y][x] === "G";
+          const isEnemy = enemies.some(e => e.x === x && e.y === y);
+          const isPlayer = playerPos.x === x && playerPos.y === y;
+
+          if (isWall) {
+            cell.classList.add("wall");
+          } else if (isGoal) {
+            cell.classList.add("goal");
+            cell.textContent = isPlayer ? "💃❤️" : "❤️";
+          } else if (isEnemy && isPlayer) {
+            cell.textContent = "💥";
+          } else if (isEnemy) {
+            cell.textContent = "👾";
+          } else if (isPlayer) {
+            cell.textContent = "💃";
+          }
+
+          container.appendChild(cell);
+        }
+      }
+    }
+
+    function movePlayer(dx, dy) {
+      if (!gameActive) return;
+      
+      const newX = playerPos.x + dx;
+      const newY = playerPos.y + dy;
+
+      if (maze[newY][newX] !== "#") {
+        playerPos = { x: newX, y: newY };
+        renderMaze();
+        checkStatus();
+      }
+    }
+
+    // Función para encontrar el camino más corto hacia el jugador
+    function findPathToPlayer(enemy) {
+      // Calculamos la dirección preferente hacia el jugador
+      const dx = playerPos.x - enemy.x;
+      const dy = playerPos.y - enemy.y;
+      
+      // Priorizamos movimientos que acerquen al jugador
+      const possibleMoves = [];
+      
+      // Movimiento horizontal
+      if (dx !== 0) {
+        const moveX = dx > 0 ? 1 : -1;
+        if (maze[enemy.y][enemy.x + moveX] !== "#") {
+          possibleMoves.push({ dx: moveX, dy: 0 });
+        }
+      }
+      
+      // Movimiento vertical
+      if (dy !== 0) {
+        const moveY = dy > 0 ? 1 : -1;
+        if (maze[enemy.y + moveY][enemy.x] !== "#") {
+          possibleMoves.push({ dx: 0, dy: moveY });
+        }
+      }
+      
+      // Si no hay movimientos directos, buscamos alternativas
+      if (possibleMoves.length === 0) {
+        // Movimientos posibles en cualquier dirección
+        const directions = [
+          { dx: 1, dy: 0 },
+          { dx: -1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 0, dy: -1 }
+        ];
+        
+        for (const dir of directions) {
+          if (maze[enemy.y + dir.dy][enemy.x + dir.dx] !== "#") {
+            possibleMoves.push(dir);
+          }
+        }
+      }
+      
+      // Elegimos un movimiento al azar de los posibles (para no ser perfectos)
+      if (possibleMoves.length > 0) {
+        return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+      }
+      
+      // Si no hay movimientos posibles, nos quedamos quietos
+      return { dx: 0, dy: 0 };
+    }
+
+    function moveEnemies() {
+      if (!gameActive) return;
+      
+      for (let e of enemies) {
+        // En lugar de moverse aleatoriamente, persiguen al jugador
+        const move = findPathToPlayer(e);
+        e.dx = move.dx;
+        e.dy = move.dy;
+        
+        let newX = e.x + e.dx;
+        let newY = e.y + e.dy;
+
+        if (maze[newY][newX] !== "#") {
+          e.x = newX;
+          e.y = newY;
+        }
+      }
+
+      renderMaze();
+      checkStatus();
+    }
+
+    function checkStatus() {
+      if (maze[playerPos.y][playerPos.x] === "G") {
+        message.style.display = "block";
+        message.innerHTML = `
+          💖 <strong>¡Feliz cumpleaños y día de la novia, amor mío!</strong> 💖<br><br>
+          Lograste superar este reto, como siempre lo haces. Esto demuestra mi amor por ti.<br>
+          ¡Eres increíble y te amo mucho! 💘
+        `;
+        gameActive = false;
+        clearInterval(enemyInterval);
+      }
+
+      for (let e of enemies) {
+        if (e.x === playerPos.x && e.y === playerPos.y) {
+          message.style.display = "block";
+          message.innerHTML = "💔 ¡Oh no! Un enemigo te atrapó... ¡Inténtalo otra vez, hermosa valiente!";
+          gameActive = false;
+          clearInterval(enemyInterval);
+        }
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "ArrowUp": movePlayer(0, -1); break;
+        case "ArrowDown": movePlayer(0, 1); break;
+        case "ArrowLeft": movePlayer(-1, 0); break;
+        case "ArrowRight": movePlayer(1, 0); break;
+      }
+    });
+
+    renderMaze();
+    const enemyInterval = setInterval(moveEnemies, 500);
+  </script>
+</body>
+</html>
